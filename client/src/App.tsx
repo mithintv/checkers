@@ -1,4 +1,4 @@
-import { useReducer } from "react";
+import { useEffect, useReducer, useState } from "react";
 import Cell from "./components/Cell";
 import {
 	checkJumps,
@@ -115,6 +115,38 @@ function App() {
 		gridStateReducer,
 		createGameState()
 	);
+
+	const [messages, setMessages] = useState<unknown[]>([]);
+	const [ws, setWs] = useState<WebSocket>();
+
+	useEffect(() => {
+		const socket = new WebSocket("ws://localhost:5041");
+
+		// Connection opened
+		socket.addEventListener("open", () => {
+			console.log("Connected to WS Server");
+		});
+
+		// Listen for messages
+		socket.addEventListener("message", (event) => {
+			console.log("Message from server ", event.data);
+			setMessages((prev) => [...prev, event.data]);
+		});
+
+		// Set websocket in state
+		setWs(socket);
+
+		return () => {
+			socket.close();
+		};
+	}, []);
+
+	const sendMessage = (message: string) => {
+		if (ws) {
+			ws.send(message);
+			console.log("Message sent:", message);
+		}
+	};
 
 	const canMove = (newCell: GridCell) => {
 		const origin = gameState.selectedCell!.coordinates;
@@ -252,6 +284,7 @@ function App() {
 				>
 					Reset
 				</button>
+				<button onClick={() => sendMessage("hi")}>Send Message</button>
 			</div>
 		</>
 	);

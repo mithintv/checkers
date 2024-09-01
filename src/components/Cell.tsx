@@ -6,7 +6,7 @@ export default function Cell({
 	onCellClick,
 }: {
 	cell: IGridCell;
-	selected: boolean;
+	selected: boolean | null;
 	onCellClick: (cell: IGridCell) => void;
 }) {
 	const isPlayable = isPlayableCell(cell.coordinates[0], cell.coordinates[1]);
@@ -28,7 +28,8 @@ export default function Cell({
 			)}
 			{isPlayable && cell.piece?.player === "black" && (
 				<div
-					className={`w-8 h-8 bg-stone-800 rounded-full ${
+					onClick={() => onCellClick(cell)}
+					className={`w-8 h-8 bg-stone-800 rounded-full outline-slate-100 ${
 						selected && "outline outline-slate-100"
 					}`}
 				></div>

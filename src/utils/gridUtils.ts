@@ -1,16 +1,25 @@
-type CoordinateArray = [number, number];
+export type CoordinateArray = [number, number];
 
 export type GridCell = IGridCell | null;
 export type GridPiece = IPiece | null;
+export type Player = "black" | "red";
 
-interface IPiece {
-	player: "black" | "red";
+export interface IPiece {
+	player: Player;
 	king: boolean;
 }
 
 export interface IGridCell {
 	coordinates: CoordinateArray;
 	piece: GridPiece;
+}
+
+export interface IGameState {
+	grid: IGridCell[][];
+	turn: Player;
+	continueTurn: boolean;
+	lockedSelection: boolean;
+	selectedCell: GridCell;
 }
 
 export const isPlayableCell = (row: number, col: number) => {
@@ -43,11 +52,17 @@ const createGridRow = (row: number) => {
 	return gridRow;
 };
 
-export const createGridMatrix = () => {
+export const createGameState = (): IGameState => {
 	const gridMatrix: IGridCell[][] = [];
 	for (let i = 0; i <= 7; i++) {
 		const gridRow = createGridRow(i);
 		gridMatrix.push(gridRow);
 	}
-	return gridMatrix;
+	return {
+		grid: gridMatrix,
+		turn: "red",
+		continueTurn: false,
+		lockedSelection: false,
+		selectedCell: null,
+	};
 };

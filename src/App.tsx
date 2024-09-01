@@ -1,50 +1,14 @@
 import { useReducer } from "react";
 import Cell from "./components/Cell";
 import {
+	checkJumps,
 	createGameState,
 	GridCell,
 	IGameState,
 	IGridCell,
 	isPlayableCell,
+	Player,
 } from "./utils/gridUtils";
-
-const checkMoreJumps = (currCell: GridCell, gameState: IGameState): boolean => {
-	const origin = currCell!.coordinates;
-	console.log(origin);
-	for (let i = 0; i <= 1; i++) {
-		const checkScenario = i % 2 === 0;
-		const xValue = checkScenario ? 1 : -1;
-		const yValue = currCell!.piece?.player === "black" ? 1 : -1;
-
-		if (
-			origin[0] + xValue > 7 ||
-			origin[0] + xValue < 0 ||
-			origin[1] + yValue > 7 ||
-			origin[1] + yValue < 0
-		)
-			continue;
-		const opp = gameState.grid[origin[0] + xValue][origin[1] + yValue];
-		console.log("checking", opp?.coordinates);
-		if (
-			opp.coordinates[0] + xValue > 7 ||
-			opp.coordinates[0] + xValue < 0 ||
-			opp.coordinates[1] + yValue > 7 ||
-			opp.coordinates[1] + yValue < 0
-		)
-			continue;
-		const behind =
-			gameState.grid[opp.coordinates[0] + xValue][opp.coordinates[1] + yValue];
-		console.log("behind", behind.coordinates);
-
-		if (
-			currCell!.piece?.player !== opp.piece?.player &&
-			behind.piece === null
-		) {
-			return true;
-		}
-	}
-	return false;
-};
 
 function gridStateReducer(
 	state: IGameState,
@@ -55,16 +19,15 @@ function gridStateReducer(
 		newCell?: GridCell;
 	}
 ) {
-	const newGrid: IGridCell[][] = state.grid.map((row) =>
-		row.map((cell) => {
-			return {
-				coordinates: [...cell.coordinates],
-				piece: cell.piece ? { ...cell.piece } : null,
-			};
-		})
-	);
-	const newState = {
-		grid: newGrid,
+	const newState: IGameState = {
+		grid: state.grid.map((row) =>
+			row.map((cell) => {
+				return {
+					coordinates: [...cell.coordinates],
+					piece: cell.piece ? { ...cell.piece } : null,
+				};
+			})
+		),
 		turn: state.turn,
 		continueTurn: state.continueTurn,
 		lockedSelection: state.lockedSelection,
@@ -76,7 +39,6 @@ function gridStateReducer(
 		case "reset_grid":
 			return createGameState();
 		case "select_piece":
-			console.log(selectedCell?.coordinates, selectedCell?.piece);
 			newState.selectedCell = {
 				coordinates: [...selectedCell!.coordinates],
 				piece: { ...selectedCell!.piece! },
@@ -85,13 +47,19 @@ function gridStateReducer(
 		case "end_turn": {
 			newState.turn = newState.turn === "black" ? "red" : "black";
 			newState.continueTurn = false;
+			newState.lockedSelection = false;
 			return newState;
 		}
 		case "move_piece": {
-			console.log(newCell?.coordinates, newCell?.piece);
-
+			console.log("dispatching move_piece");
 			newState.grid[newCell!.coordinates[0]][newCell!.coordinates[1]].piece = {
 				...state.selectedCell!.piece!,
+				king:
+					state.selectedCell!.piece!.king ||
+					(newCell?.coordinates[1] === 0 &&
+						state.selectedCell!.piece!.player === "red") ||
+					(newCell?.coordinates[1] === 7 &&
+						state.selectedCell!.piece!.player === "black"),
 			};
 			newState.grid[state.selectedCell!.coordinates[0]][
 				state.selectedCell!.coordinates[1]
@@ -104,26 +72,39 @@ function gridStateReducer(
 				piece: { ...state.selectedCell!.piece! },
 			};
 
+			if (jumpedCell) {
+				newState.grid[jumpedCell!.coordinates[0]][jumpedCell!.coordinates[1]] =
+					{
+						coordinates: [...jumpedCell!.coordinates],
+						piece: null,
+					};
+				console.log(newState.selectedCell);
+
+				const jumpList = checkJumps(
+					newState.selectedCell,
+					newState.grid,
+					newState.turn
+				);
+				if (newState.selectedCell?.piece?.king) {
+					jumpList.push(
+						...checkJumps(
+							newState.selectedCell,
+							newState.grid,
+							newState.turn === "red" ? "black" : "red"
+						)
+					);
+				}
+				newState.continueTurn = jumpList.length > 0 ? true : false;
+				newState.lockedSelection = jumpList.length > 0 ? true : false;
+			}
+
 			if (!newState.continueTurn) {
 				newState.turn = newState.turn === "black" ? "red" : "black";
 			}
 
-			console.log(newState);
 			return newState;
 		}
-		case "jump_piece": {
-			console.log("dispatching jump_piece");
-			newState.grid[jumpedCell!.coordinates[0]][jumpedCell!.coordinates[1]] = {
-				coordinates: [...jumpedCell!.coordinates],
-				piece: null,
-			};
 
-			const moreJumps = checkMoreJumps(newCell!, newState);
-			console.log("moreJumps", moreJumps);
-			newState.continueTurn = moreJumps ? true : false;
-			newState.lockedSelection = moreJumps ? true : false;
-			return newState;
-		}
 		default:
 			return state;
 	}
@@ -135,99 +116,97 @@ function App() {
 		createGameState()
 	);
 
-	const selectPiece = (currCell: GridCell) => {
-		console.log(currCell?.coordinates);
-		if (currCell?.piece && !gameState.lockedSelection) {
-			dispatchGrid({ type: "select_piece", selectedCell: currCell });
-		}
-	};
-
-	const movePiece = (newCell: GridCell) => {
-		if (!canMove(newCell)) return;
-		console.log(newCell);
-		dispatchGrid({ type: "move_piece", newCell });
-	};
-
 	const canMove = (newCell: GridCell) => {
-		if (
-			!newCell ||
-			!isPlayableCell(newCell.coordinates[0], newCell.coordinates[1]) ||
-			newCell.piece
-		)
-			return false;
-
-		if (canJump(newCell)) return true;
-
 		const origin = gameState.selectedCell!.coordinates;
-		const dest = newCell.coordinates;
-		console.log(origin, dest);
-		if (dest[0] > origin[0] + 1 || dest[0] < origin[0] - 1) return;
+		const dest = newCell!.coordinates;
+		console.log("origin", origin, "dest", dest);
+		if (dest[0] > origin[0] + 1 || dest[0] < origin[0] - 1) {
+			console.log("x too far for piece");
+			return;
+		}
 		if (
+			gameState.selectedCell!.piece!.king &&
+			(dest[1] > origin[1] + 1 || dest[1] < origin[1] - 1)
+		) {
+			console.log("y too far for king");
+			return;
+		}
+		if (
+			!gameState.selectedCell!.piece!.king &&
 			gameState.selectedCell!.piece!.player === "black" &&
 			dest[1] !== origin[1] + 1
-		)
-			return false;
+		) {
+			console.log("y too far for black");
+			return;
+		}
 		if (
+			!gameState.selectedCell!.piece!.king &&
 			gameState.selectedCell!.piece!.player === "red" &&
 			dest[1] !== origin[1] - 1
-		)
-			return false;
+		) {
+			console.log("y too far for red");
+			return;
+		}
 
-		return true;
+		dispatchGrid({ type: "move_piece", newCell });
 	};
 
 	const canJump = (
 		newCell: GridCell,
-		currCell: GridCell = gameState.selectedCell
+		currCell: GridCell = gameState.selectedCell,
+		player: Player = gameState.selectedCell!.piece!.player
 	) => {
-		const origin = currCell!.coordinates;
 		const dest = newCell!.coordinates;
+		const canJumpList = checkJumps(
+			currCell as IGridCell,
+			gameState.grid,
+			player
+		);
+		const jumpObj = canJumpList.find(
+			(x) => x.newCoordinates[0] === dest[0] && x.newCoordinates[1] === dest[1]
+		);
 
-		for (let i = 0; i <= 1; i++) {
-			const checkScenario = i % 2 === 0;
-			const xValue = checkScenario ? 1 : -1;
-			const yValue = currCell!.piece?.player === "black" ? 1 : -1;
-
-			if (
-				origin[0] + xValue > 7 ||
-				origin[0] + xValue < 0 ||
-				origin[1] + yValue > 7 ||
-				origin[1] + yValue < 0
-			)
-				continue;
-			const opp = gameState.grid[origin[0] + xValue][origin[1] + yValue];
-			console.log("checking", opp?.coordinates);
-			if (
-				opp.coordinates[0] + xValue > 7 ||
-				opp.coordinates[0] + xValue < 0 ||
-				opp.coordinates[1] + yValue > 7 ||
-				opp.coordinates[1] + yValue < 0
-			)
-				continue;
-			const behind =
-				gameState.grid[opp.coordinates[0] + xValue][
-					opp.coordinates[1] + yValue
-				];
-
-			if (
-				currCell!.piece?.player !== opp.piece?.player &&
-				behind.piece === null &&
-				behind.coordinates[0] === dest[0] &&
-				behind.coordinates[1] === dest[1]
-			) {
-				dispatchGrid({ type: "jump_piece", newCell, jumpedCell: opp });
-				return true;
-			}
+		if (jumpObj) {
+			dispatchGrid({
+				type: "move_piece",
+				selectedCell: currCell,
+				jumpedCell: jumpObj.jumpedCell,
+				newCell,
+			});
+			return true;
 		}
 
 		return false;
 	};
 
-	const onCellClick = (cell: IGridCell) => {
-		if (cell.piece && cell.piece?.player === gameState.turn) {
-			selectPiece(cell);
+	const onCellClick = (currCell: IGridCell) => {
+		console.log(currCell?.coordinates, currCell?.piece);
+		if (
+			currCell.piece &&
+			currCell.piece.player === gameState.turn &&
+			!gameState.lockedSelection
+		) {
+			dispatchGrid({ type: "select_piece", selectedCell: currCell });
 		} else if (gameState.selectedCell !== null) {
-			movePiece(cell);
+			if (
+				!currCell ||
+				currCell.piece ||
+				!isPlayableCell(...currCell.coordinates)
+			) {
+				console.log("can't move to invalid cell");
+				return;
+			}
+
+			if (gameState.selectedCell!.piece!.king) {
+				if (canJump(currCell, gameState.selectedCell, "red")) return;
+				if (canJump(currCell, gameState.selectedCell, "black")) return;
+			} else {
+				if (canJump(currCell)) return;
+			}
+
+			if (!gameState.lockedSelection) {
+				canMove(currCell);
+			}
 		}
 	};
 	return (

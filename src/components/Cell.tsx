@@ -1,3 +1,4 @@
+import { FaCrown } from "react-icons/fa";
 import { IGridCell, isPlayableCell } from "../utils/gridUtils";
 
 export default function Cell({
@@ -21,18 +22,22 @@ export default function Cell({
 			{isPlayable && cell.piece?.player === "red" && (
 				<div
 					onClick={() => onCellClick(cell)}
-					className={`w-8 h-8 bg-red-500 rounded-full ${
+					className={`flex justify-center items-center w-8 h-8 bg-red-500 rounded-full ${
 						selected && "outline outline-slate-100"
 					}`}
-				></div>
+				>
+					{cell.piece.king && <FaCrown />}
+				</div>
 			)}
 			{isPlayable && cell.piece?.player === "black" && (
 				<div
 					onClick={() => onCellClick(cell)}
-					className={`w-8 h-8 bg-stone-800 rounded-full outline-slate-100 ${
+					className={`flex justify-center items-center w-8 h-8 bg-stone-800 rounded-full outline-slate-100 ${
 						selected && "outline outline-slate-100"
 					}`}
-				></div>
+				>
+					{cell.piece.king && <FaCrown />}
+				</div>
 			)}
 		</div>
 	);

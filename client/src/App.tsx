@@ -17,6 +17,7 @@ function gridStateReducer(
 		selectedCell?: GridCell;
 		jumpedCell?: GridCell;
 		newCell?: GridCell;
+		statePayload?: IGameState;
 	}
 ) {
 	const newState: IGameState = {
@@ -33,9 +34,15 @@ function gridStateReducer(
 		lockedSelection: state.lockedSelection,
 		selectedCell: state.selectedCell,
 	};
-	const { selectedCell, jumpedCell, newCell } = action;
+	const { selectedCell, jumpedCell, newCell, statePayload } = action;
 
 	switch (action.type) {
+		case "set_grid":
+			if (!statePayload) {
+				console.error("no state payload!");
+				return state;
+			}
+			return statePayload;
 		case "reset_grid":
 			return createGameState();
 		case "select_piece":
@@ -115,6 +122,7 @@ function App() {
 		gridStateReducer,
 		createGameState()
 	);
+	const [games, setGames] = useState([]);
 
 	const [messages, setMessages] = useState<unknown[]>([]);
 	const [ws, setWs] = useState<WebSocket>();
@@ -241,10 +249,66 @@ function App() {
 			}
 		}
 	};
+
+	const saveGame = async () => {
+		const res = await fetch("/api/game", {
+			headers: {
+				"Content-Type": "application/json",
+			},
+			method: "POST",
+			body: JSON.stringify({
+				gameState,
+			}),
+		});
+		if (res.status !== 200) {
+			console.error(res);
+			return;
+		}
+		const json = await res.json();
+		console.log(json);
+	};
+
+	const listGames = async () => {
+		const res = await fetch(`/api/games`, {
+			headers: {
+				"Content-Type": "application/json",
+			},
+			method: "GET",
+		});
+		if (res.status !== 200) {
+			console.error(res);
+			return;
+		}
+		const json = await res.json();
+		console.log(json);
+
+		setGames(json);
+	};
+
+	const loadGame = async (gameId: string) => {
+		const res = await fetch(`/api/game/${gameId}`, {
+			headers: {
+				"Content-Type": "application/json",
+			},
+			method: "GET",
+		});
+		if (res.status !== 200) {
+			console.error(res);
+			return;
+		}
+		const json = await res.json();
+		console.log(json);
+
+		dispatchGrid({ type: "set_grid", statePayload: json.gameState });
+	};
+
 	return (
 		<>
 			<div className="my-2">
 				{gameState.turn[0].toUpperCase() + gameState.turn.slice(1)}'s Turn
+				<button className="mt-4" onClick={() => sendMessage("hi")}>
+					Send Message
+				</button>
 			</div>
 			<div className="flex flex-row border">
 				{gameState.grid.map((row, rowIndex) => {
@@ -267,24 +331,41 @@ function App() {
 					);
 				})}
 			</div>
-			<div className="flex flex-row justify-center gap-4">
-				{gameState.continueTurn && (
+			<div className="w-[386px]">
+				<div className="flex flex-row flex-wrap justify-center gap-4">
+					<button className="mt-4" onClick={() => listGames()}>
+						Load Game
+					</button>
+					<button className="mt-4" onClick={() => saveGame()}>
+						Save Game
+					</button>
+					{gameState.continueTurn && (
+						<button
+							className="mt-4"
+							onClick={() => {
+								dispatchGrid({ type: "end_turn" });
+							}}
+						>
+							End Turn
+						</button>
+					)}
 					<button
 						className="mt-4"
-						onClick={() => {
-							dispatchGrid({ type: "end_turn" });
-						}}
+						onClick={() => dispatchGrid({ type: "reset_grid" })}
 					>
-						End Turn
+						Reset
 					</button>
-				)}
-				<button
-					className="mt-4"
-					onClick={() => dispatchGrid({ type: "reset_grid" })}
-				>
-					Reset
-				</button>
-				<button onClick={() => sendMessage("hi")}>Send Message</button>
+				</div>
+				<div>
+					{games.length > 0 &&
+						games.map((g: { _id: string }) => {
+							return (
+								<div key={g._id} onClick={() => loadGame(g._id)}>
+									{g._id}
+								</div>
+							);
+						})}
+				</div>
 			</div>
 		</>
 	);

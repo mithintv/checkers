@@ -1,9 +1,13 @@
 import { useEffect, useReducer, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { v4 as uuidv4 } from "uuid";
 import Cell from "./components/Cell";
 import {
 	checkJumps,
 	createGameState,
+	determineWinner,
 	GridCell,
+	IGame,
 	IGameState,
 	IGridCell,
 	isPlayableCell,
@@ -18,9 +22,14 @@ function gridStateReducer(
 		jumpedCell?: GridCell;
 		newCell?: GridCell;
 		statePayload?: IGameState;
+		winner?: Player;
 	}
 ) {
 	const newState: IGameState = {
+		...state,
+		score: {
+			...state.score,
+		},
 		grid: state.grid.map((row) =>
 			row.map((cell) => {
 				return {
@@ -29,12 +38,8 @@ function gridStateReducer(
 				};
 			})
 		),
-		turn: state.turn,
-		continueTurn: state.continueTurn,
-		lockedSelection: state.lockedSelection,
-		selectedCell: state.selectedCell,
 	};
-	const { selectedCell, jumpedCell, newCell, statePayload } = action;
+	const { selectedCell, jumpedCell, newCell, statePayload, winner } = action;
 
 	switch (action.type) {
 		case "set_grid":
@@ -45,6 +50,11 @@ function gridStateReducer(
 			return statePayload;
 		case "reset_grid":
 			return createGameState();
+		case "end_game":
+			newState.selectedCell = null;
+			newState.turn = null;
+			newState.winner = winner!;
+			return newState;
 		case "select_piece":
 			newState.selectedCell = {
 				coordinates: [...selectedCell!.coordinates],
@@ -85,12 +95,15 @@ function gridStateReducer(
 						coordinates: [...jumpedCell!.coordinates],
 						piece: null,
 					};
-				console.log(newState.selectedCell);
+				newState.score = {
+					...state.score,
+					[newState.turn!]: state.score[newState.turn!] + 1,
+				};
 
 				const jumpList = checkJumps(
 					newState.selectedCell,
 					newState.grid,
-					newState.turn
+					newState.turn!
 				);
 				if (newState.selectedCell?.piece?.king) {
 					jumpList.push(
@@ -118,14 +131,20 @@ function gridStateReducer(
 }
 
 function App() {
+	const navigate = useNavigate();
+	const [gameId, setGameId] = useState(uuidv4());
 	const [gameState, dispatchGrid] = useReducer(
 		gridStateReducer,
 		createGameState()
 	);
-	const [games, setGames] = useState([]);
+	const [games, setGames] = useState<IGame[]>([]);
 
 	const [messages, setMessages] = useState<unknown[]>([]);
 	const [ws, setWs] = useState<WebSocket>();
+
+	useEffect(() => {
+		navigate(`/game/${gameId}`)
+	}, [gameId, navigate])
 
 	useEffect(() => {
 		const socket = new WebSocket("ws://localhost:5041");
@@ -149,11 +168,36 @@ function App() {
 		};
 	}, []);
 
+	useEffect(() => {
+		if (
+			!gameState.winner &&
+			(gameState.score.red === 12 || gameState.score.black === 12)
+		) {
+			let winner;
+			for (const key in gameState.score) {
+				const player = key as Player;
+				if (gameState.score[player] === 12) {
+					winner = player;
+				}
+			}
+			dispatchGrid({
+				type: "end_game",
+				winner: winner!,
+			});
+		}
+	}, [gameState.winner, gameState.score]);
+
 	const sendMessage = (message: string) => {
 		if (ws) {
 			ws.send(message);
 			console.log("Message sent:", message);
 		}
+	};
+
+	const newGame = () => {
+		const gameId = uuidv4();
+		setGameId(gameId);
+		dispatchGrid({ type: "reset_grid" });
 	};
 
 	const canMove = (newCell: GridCell) => {
@@ -257,6 +301,7 @@ function App() {
 			},
 			method: "POST",
 			body: JSON.stringify({
+				gameId,
 				gameState,
 			}),
 		});
@@ -299,38 +344,64 @@ function App() {
 		const json = await res.json();
 		console.log(json);
 
+		setGameId(json._id)
 		dispatchGrid({ type: "set_grid", statePayload: json.gameState });
+	};
+
+	const deleteGame = async (gameId: string) => {
+		const res = await fetch(`/api/game/${gameId}`, {
+			method: "DELETE",
+		});
+		if (res.status !== 200) {
+			console.error(res);
+			return;
+		}
+		const json = await res.json();
+		console.log(json);
+		setGames((g) => g.filter((x) => x._id !== gameId));
 	};
 
 	return (
 		<>
-			<div className="my-2">
-				{gameState.turn[0].toUpperCase() + gameState.turn.slice(1)}'s Turn
-				<button className="mt-4" onClick={() => sendMessage("hi")}>
-					Send Message
-				</button>
+			<div className="py-2 flex flex-row gap-4 justify-center">
+				<span>Red : {gameState.score.red}</span>
+				<span>Black: {gameState.score.black}</span>
 			</div>
-			<div className="flex flex-row border">
-				{gameState.grid.map((row, rowIndex) => {
-					return (
-						<div className="flex flex-col" key={rowIndex}>
-							{row.map((cell) => (
-								<Cell
-									key={`${cell.coordinates[1]}-${cell.coordinates[0]}`}
-									cell={cell}
-									selected={
-										gameState.selectedCell?.coordinates[0] ===
-											cell.coordinates[0] &&
-										gameState.selectedCell?.coordinates[1] ===
-											cell.coordinates[1]
-									}
-									onCellClick={onCellClick}
-								/>
-							))}
-						</div>
-					);
-				})}
+
+			<div className="py-2">
+				<span>
+					{gameState.turn
+						? gameState.turn![0].toUpperCase() +
+						  gameState.turn!.slice(1) +
+						  "'s Turn"
+						: determineWinner(gameState.winner)}
+				</span>
 			</div>
+
+			<div className="py-2">
+				<div className="flex flex-row border">
+					{gameState.grid.map((row, rowIndex) => {
+						return (
+							<div className="flex flex-col" key={rowIndex}>
+								{row.map((cell) => (
+									<Cell
+										key={`${cell.coordinates[1]}-${cell.coordinates[0]}`}
+										cell={cell}
+										selected={
+											gameState.selectedCell?.coordinates[0] ===
+												cell.coordinates[0] &&
+											gameState.selectedCell?.coordinates[1] ===
+												cell.coordinates[1]
+										}
+										onCellClick={onCellClick}
+									/>
+								))}
+							</div>
+						);
+					})}
+				</div>
+			</div>
+
 			<div className="w-[386px]">
 				<div className="flex flex-row flex-wrap justify-center gap-4">
 					<button className="mt-4" onClick={() => listGames()}>
@@ -349,19 +420,22 @@ function App() {
 							End Turn
 						</button>
 					)}
-					<button
-						className="mt-4"
-						onClick={() => dispatchGrid({ type: "reset_grid" })}
-					>
-						Reset
+					<button className="mt-4" onClick={newGame}>
+						New Game
+					</button>
+
+					<button onClick={() => sendMessage("hi from client")}>
+						Send Message
 					</button>
 				</div>
-				<div>
+
+				<div className="py-2">
 					{games.length > 0 &&
 						games.map((g: { _id: string }) => {
 							return (
-								<div key={g._id} onClick={() => loadGame(g._id)}>
-									{g._id}
+								<div key={g._id} className="flex flex-row justify-center gap-3">
+									<span onClick={() => loadGame(g._id)}>{g._id}</span>
+									<span onClick={() => deleteGame(g._id)}>X</span>
 								</div>
 							);
 						})}

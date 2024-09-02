@@ -1,4 +1,4 @@
-import mongodb, { ObjectId } from "@fastify/mongodb";
+import mongodb from "@fastify/mongodb";
 import ws from "@fastify/websocket";
 import { IGameState } from "@shared/interfaces.js";
 import dotenv from "dotenv";
@@ -54,12 +54,27 @@ fastify.get("/games", async (req, reply) => {
 	}
 });
 
-fastify.get("/game/:id", async (req, reply) => {
-	const { id }: { id: string } | any = req.params;
+fastify.post("/game", async (req, reply) => {
+	const { gameId, gameState }: { gameState: IGameState } | any = req.body;
+	const db = fastify.mongo.db!.collection("games");
+	try {
+		const result = await db.insertOne({
+			_id: gameId,
+			gameState,
+		});
+		log.info(`A document was inserted with the _id: ${result.insertedId}`);
+		reply.status(200).send(result.insertedId);
+	} catch (error) {
+		log.error(error);
+	}
+});
+
+fastify.get("/game/:gameId", async (req, reply) => {
+	const { gameId }: { id: string } | any = req.params;
 	const db = fastify.mongo.db!.collection("games");
 	try {
 		const result = await db.findOne({
-			_id: new ObjectId(id),
+			_id: gameId,
 		});
 		log.info(`A document was found with the _id: ${result?._id}`);
 		reply.status(200).send(result);
@@ -68,15 +83,15 @@ fastify.get("/game/:id", async (req, reply) => {
 	}
 });
 
-fastify.post("/game", async (req, reply) => {
-	const { gameState }: { gameState: IGameState } | any = req.body;
+fastify.delete("/game/:id", async (req, reply) => {
+	const { gameId }: { id: string } | any = req.params;
 	const db = fastify.mongo.db!.collection("games");
 	try {
-		const result = await db.insertOne({
-			gameState,
+		const result = await db.deleteOne({
+			_id: gameId,
 		});
-		log.info(`A document was inserted with the _id: ${result.insertedId}`);
-		reply.status(200).send(result.insertedId);
+		log.info(`Deleted Document: ${result?.acknowledged}`);
+		reply.status(200).send(result);
 	} catch (error) {
 		log.error(error);
 	}

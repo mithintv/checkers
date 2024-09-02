@@ -16,10 +16,19 @@ export interface IGridCell {
 
 export interface IGameState {
 	grid: IGridCell[][];
-	turn: Player;
+	score: {
+		red: number;
+		black: number;
+	};
+	winner: Player | "tie" | null;
+	turn: Player | null;
 	continueTurn: boolean;
 	lockedSelection: boolean;
 	selectedCell: GridCell;
+}
+
+export interface IGame {
+	_id: string;
 }
 
 interface ICanJump {
@@ -65,6 +74,11 @@ export const createGameState = (): IGameState => {
 	}
 	return {
 		grid: gridMatrix,
+		score: {
+			red: 0,
+			black: 0,
+		},
+		winner: null,
 		turn: "red",
 		continueTurn: false,
 		lockedSelection: false,
@@ -119,4 +133,15 @@ export const checkJumps = (
 	}
 	console.log("jumpList", moreJumps);
 	return moreJumps;
+};
+
+export const determineWinner = (winner: string | null) => {
+	switch (winner) {
+		case "tie":
+			return "Tie Game!";
+		case "red":
+			return "Red Wins!";
+		case "black":
+			return "Black Wins!";
+	}
 };

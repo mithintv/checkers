@@ -12,6 +12,11 @@ export default defineConfig({
 				changeOrigin: true, // Needed for virtual hosted sites
 				rewrite: (path) => path.replace(/^\/api/, ""), // Remove /api prefix
 			},
+			"/socket.io": {
+				target: "ws://localhost:5041",
+				ws: true,
+				rewriteWsOrigin: true,
+			},
 		},
 	},
 });

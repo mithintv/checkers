@@ -1,5 +1,5 @@
+import { ISocketGame } from "@shared/interfaces";
 import { useContext, useEffect, useReducer, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import Cell from "../components/Cell";
 import { SocketContext } from "../context/SocketContext";
@@ -131,35 +131,49 @@ function gridStateReducer(
 	}
 }
 
-export default function Game() {
+export default function Game({
+	lobbyParam,
+	gameIdParam,
+	userIdParam,
+}: {
+	lobbyParam: ISocketGame[];
+	gameIdParam: string;
+	userIdParam: string;
+}) {
 	const socket = useContext(SocketContext);
-	const { gameIdParam, userIdParam } = useParams();
-	const navigate = useNavigate();
-	const [gameId, setGameId] = useState(gameIdParam || uuidv4());
+	const [gameId, setGameId] = useState(gameIdParam);
 	const [gameState, dispatchGrid] = useReducer(
 		gridStateReducer,
 		createGameState()
 	);
 	const [games, setGames] = useState<IGame[]>([]);
+	console.log(lobbyParam);
+	console.log(userIdParam);
+	console.log(gameIdParam);
 
 	useEffect(() => {
-		socket.emit("changeState", { userId: userIdParam, gameId, gameState });
+		if (lobbyParam) {
+			const lobbyPlayer = lobbyParam.find((x) => x.userId === userIdParam);
+			if (gameState.turn !== lobbyPlayer?.position) {
+				console.log("emitting data!");
+				socket.emit("changeState", { userId: userIdParam, gameId, gameState });
+			}
+		}
 
 		socket.on("stateChanged", (broadcast) => {
-			console.log(broadcast.userId);
-			if (broadcast.userId !== userIdParam && broadcast.gameId === gameId) {
-				dispatchGrid({ type: "set_grid", statePayload: broadcast.gameState });
+			console.log("receiving data!");
+			if (broadcast.gameId === gameId) {
+				dispatchGrid({
+					type: "set_grid",
+					statePayload: broadcast.gameState,
+				});
 			}
 		});
 
 		return () => {
 			socket.off("stateChanged");
 		};
-	}, [gameId, gameState, socket, userIdParam]);
-
-	useEffect(() => {
-		navigate(`/game/${gameId}/${userIdParam}`);
-	}, [gameId, navigate, userIdParam]);
+	}, [gameId, gameState, lobbyParam, socket, userIdParam]);
 
 	useEffect(() => {
 		if (
@@ -250,6 +264,11 @@ export default function Game() {
 	};
 
 	const onCellClick = (currCell: IGridCell) => {
+		const lobbyPlayer = lobbyParam.find((x) => x.userId === userIdParam);
+		if (lobbyParam.length === 2 && gameState.turn !== lobbyPlayer?.position) {
+			return;
+		}
+
 		console.log(currCell?.coordinates, currCell?.piece);
 		if (
 			currCell.piece &&
@@ -332,6 +351,7 @@ export default function Game() {
 
 		setGameId(json._id);
 		dispatchGrid({ type: "set_grid", statePayload: json.gameState });
+		socket.emit("changeState", { userId: userIdParam, gameId, gameState });
 	};
 
 	const deleteGame = async (gameId: string) => {

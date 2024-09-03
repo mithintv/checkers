@@ -41,4 +41,5 @@ export interface ISocketGame {
 	userId: string;
 	username: string;
 	socketId: string;
+	position: Player;
 }

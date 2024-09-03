@@ -1,9 +1,10 @@
 import { ISocketGame } from "@shared/interfaces";
 import { useContext, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import { AuthContext } from "../context/AuthProvider";
 import { SocketContext } from "../context/SocketContext";
+import Game from "./Game";
 
 export default function Lobby() {
 	const socket = useContext(SocketContext);
@@ -14,6 +15,7 @@ export default function Lobby() {
 	const [gameId, setGameId] = useState(gameIdParam || uuidv4());
 	const [lobby, setLobby] = useState<ISocketGame[]>([]);
 	const [joinId, setJoinId] = useState("");
+	const [play, setPlay] = useState(false);
 
 	useEffect(() => {
 		console.log(currUser);
@@ -49,8 +51,8 @@ export default function Lobby() {
 
 	return (
 		<div>
-			<h2>Checkers Game Lobby</h2>
-			<label>
+			<h2>Checkers Game Lobby : {gameId}</h2>
+			<div className="flex flex-row py-4 gap-4">
 				<input
 					type="text"
 					value={joinId}
@@ -59,22 +61,38 @@ export default function Lobby() {
 					placeholder=""
 				/>
 				<button onClick={onJoin}>Join</button>
-			</label>
+			</div>
 			{lobby.length === 0 ? (
 				<p>Waiting for a second player...</p>
 			) : (
 				lobby.map((x) => {
 					return (
 						<p key={x.socketId}>
-							{x.userId} {x.username}
+							{x.username} - {x.userId} - {x.position}
 						</p>
 					);
 				})
 			)}
-			{lobby.length === 2 && (
-				<button>
-					<Link to={`../../game/${gameId}/${currUser?._id}`}>Start Game</Link>
-				</button>
+			<button
+				className="mt-3"
+				disabled={lobby.length !== 2}
+				onClick={() => setPlay(true)}
+			>
+				Two Player Game
+			</button>
+			<button
+				className="mt-3"
+				disabled={lobby.length !== 1}
+				onClick={() => setPlay(true)}
+			>
+				One Player Game
+			</button>
+			{play && (
+				<Game
+					lobbyParam={lobby}
+					gameIdParam={gameId}
+					userIdParam={currUser!._id!}
+				/>
 			)}
 		</div>
 	);

@@ -22,10 +22,6 @@ const router = createBrowserRouter([
 				path: "lobby/:gameIdParam?",
 				element: <Lobby />,
 			},
-			{
-				path: "game/:gameIdParam?/:userIdParam?",
-				element: <Game />,
-			},
 		],
 	},
 ]);

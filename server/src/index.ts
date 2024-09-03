@@ -84,7 +84,7 @@ const currentUsers: ISocketUsers = {};
 io.on("connection", (socket) => {
 	log.info(`Socket connected: ${socket.id}`);
 
-	// Handle events here, e.g., joining a game room
+	// Handle joining a game room
 	socket.on("joinGame", ({ userId, username, gameId }) => {
 		socket.join(gameId);
 		log.info(`User ${userId} joined game: ${gameId} on socket: ${socket.id}`);
@@ -101,6 +101,7 @@ io.on("connection", (socket) => {
 				userId,
 				username,
 				socketId: socket.id,
+				position: currentUsers[gameId].length > 0 ? "black" : "red",
 			});
 		}
 
@@ -108,8 +109,9 @@ io.on("connection", (socket) => {
 		io.to(gameId).emit("currentUsers", currentUsers);
 	});
 
+	// Handle updating game state
 	socket.on("changeState", ({ userId, gameId, gameState }) => {
-		log.info("Grid State changed!");
+		log.info(`Game ${gameId} updated by ${userId} [${socket.id}]`);
 		socket.broadcast.emit("stateChanged", { userId, gameId, gameState });
 	});
 

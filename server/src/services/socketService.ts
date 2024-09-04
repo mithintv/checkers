@@ -6,12 +6,7 @@ export const registerSocket = (fastify: FastifyInstance) => {
 	const io = new Server(fastify.server, {
 		path: "/lobby",
 		cors: {
-			origin: [
-				"https://admin.socket.io",
-				"http://localhost:5173",
-				"http://localhost:4173",
-				"https://checkers-iota.vercel.app",
-			], // Allow requests from this origin
+			origin: true, // Allow requests from this origin
 			methods: ["GET", "POST"],
 			allowedHeaders: ["Content-Type"],
 			credentials: true,

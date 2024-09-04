@@ -44,12 +44,19 @@ export default function GameList({
 	}, []);
 
 	const listGames = async () => {
+		console.log("getting games");
 		const res = await fetch(`${api}/games/${userId}`, {
 			method: "GET",
 		});
 		const json = await res.json();
 		console.log(json);
 		setGames(json);
+	};
+
+	const deleteGame = async (e: React.MouseEvent, gameId: string) => {
+		e.stopPropagation();
+		await onDelete(gameId);
+		await listGames();
 	};
 
 	return (
@@ -121,13 +128,8 @@ export default function GameList({
 										<TableCell className="text-right">
 											<MdOutlineDelete
 												className="fill-rose-800 cursor-pointer"
-												// color="burgundy"
 												size="1.33rem"
-												onClick={async (e) => {
-													e.stopPropagation();
-													onDelete(g._id);
-													await listGames();
-												}}
+												onClick={(e) => deleteGame(e, g._id)}
 											/>
 										</TableCell>
 									</TableRow>

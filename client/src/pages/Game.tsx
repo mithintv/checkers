@@ -4,6 +4,7 @@ import {
 	AlertDialogAction,
 	AlertDialogCancel,
 	AlertDialogContent,
+	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
@@ -468,6 +469,7 @@ export default function Game({
 
 			<AlertDialog open={gameState.winner !== null}>
 				<AlertDialogContent>
+					<AlertDialogDescription>Winner</AlertDialogDescription>
 					<AlertDialogHeader>
 						<AlertDialogTitle>
 							{determineWinner(gameState.winner)}

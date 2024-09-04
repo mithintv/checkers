@@ -6,7 +6,7 @@
 
 ARG NODE_VERSION=20.6.1
 
-FROM node:${NODE_VERSION}-alpine
+FROM --platform=linux/amd64 node:${NODE_VERSION}-alpine
 
 # Use production node environment by default.
 ENV NODE_ENV production
@@ -56,7 +56,7 @@ USER node
 COPY . .
 
 # Expose the port that the application listens on.
-EXPOSE 5041
+EXPOSE 80 443
 
 # Run the application.
 CMD node dist/server/src/index.js

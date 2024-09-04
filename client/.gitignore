@@ -1,5 +1,7 @@
 # Environment
 *.env
+*.env.Development
+*.env.Production
 
 # Logs
 logs

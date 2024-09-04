@@ -14,7 +14,7 @@ export default defineConfig({
 		proxy: {
 			// Proxy any request starting with /api to the target server
 			"/api": {
-				target: "http://localhost:5041", // Your API server
+				target: "http://localhost:80", // Your API server
 				changeOrigin: true, // Needed for virtual hosted sites
 				rewrite: (path) => path.replace(/^\/api/, ""), // Remove /api prefix
 			},

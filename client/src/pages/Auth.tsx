@@ -14,7 +14,6 @@ export default function Auth() {
 	const onLogin = async (e: React.FormEvent) => {
 		setInvalid(false);
 		e.preventDefault();
-		console.log(api);
 
 		const res = await fetch(`${api}/login`, {
 			headers: {

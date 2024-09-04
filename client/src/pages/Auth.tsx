@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthProvider";
@@ -58,32 +60,28 @@ export default function Auth() {
 	};
 
 	return (
-		<form className="w-[250px]">
-			<label className="flex flex-col py-4">
-				<span className="text-left text-gray-200">Username</span>
-				<input
-					type="text"
-					onChange={(e) => setUsername(e.target.value)}
-					className={`mt-1 block w-full rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 ${
-						invalid && "outline outline-rose-500"
-					}`}
-					placeholder=""
-				/>
-			</label>
+		<form className="w-[250px] mb-auto mt-32">
+			<h2 className="my-4 scroll-m-20 pb-2 text-3xl font-semibold tracking-tight first:mt-0">
+				Login
+			</h2>
+			<Input
+				type="text"
+				onChange={(e) => setUsername(e.target.value)}
+				className={`my-2 ${invalid && "outline outline-rose-500"}`}
+				placeholder="Username"
+			/>
 			<label className="flex flex-col">
-				<span className="text-left text-gray-200">Password</span>
-				<input
+				{/* <span className="text-left text-gray-200">Password</span> */}
+				<Input
 					type="password"
 					onChange={(e) => setPassword(e.target.value)}
-					className={`mt-1 block w-full rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 ${
-						invalid && "outline outline-rose-500"
-					}`}
-					placeholder=""
+					className={`my-2 ${invalid && "outline outline-rose-500"}`}
+					placeholder="Password"
 				/>
 			</label>
 			<div className="flex flex-row py-6 justify-between">
-				<button onClick={onRegister}>Register</button>
-				<button onClick={onLogin}>Login</button>
+				<Button onClick={onRegister}>Register</Button>
+				<Button onClick={onLogin}>Login</Button>
 			</div>
 		</form>
 	);

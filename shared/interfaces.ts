@@ -17,10 +17,22 @@ export interface IGridCell {
 
 export interface IGameState {
 	grid: IGridCell[][];
-	turn: Player;
+	score: {
+		red: number;
+		black: number;
+	};
+	winner: Player | "tie" | null;
+	turn: Player | null;
 	continueTurn: boolean;
 	lockedSelection: boolean;
 	selectedCell: GridCell;
+}
+
+export interface IGameSave {
+	_id: string;
+	name: string;
+	timestamp: string;
+	gameState: IGameState;
 }
 
 export interface ICanJump {
@@ -31,6 +43,7 @@ export interface ICanJump {
 export interface IUser {
 	_id: string;
 	username: string;
+	wins: number;
 }
 
 export interface ISocketUsers {

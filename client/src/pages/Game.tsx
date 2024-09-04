@@ -1,5 +1,13 @@
-import { ISocketGame } from "@shared/interfaces";
-import { useContext, useEffect, useReducer, useState } from "react";
+import GameList from "@/components/GameList";
+import { Button } from "@/components/ui/button";
+import {
+	GridCell,
+	IGameState,
+	IGridCell,
+	ISocketGame,
+	Player,
+} from "@shared/interfaces";
+import { useContext, useEffect, useReducer } from "react";
 import { v4 as uuidv4 } from "uuid";
 import Cell from "../components/Cell";
 import { SocketContext } from "../context/SocketContext";
@@ -7,12 +15,7 @@ import {
 	checkJumps,
 	createGameState,
 	determineWinner,
-	GridCell,
-	IGame,
-	IGameState,
-	IGridCell,
 	isPlayableCell,
-	Player,
 } from "../utils/gridUtils";
 
 function gridStateReducer(
@@ -134,35 +137,38 @@ function gridStateReducer(
 export default function Game({
 	lobbyParam,
 	gameIdParam,
+	setGameId,
 	userIdParam,
 }: {
 	lobbyParam: ISocketGame[];
 	gameIdParam: string;
+	setGameId: React.Dispatch<React.SetStateAction<string>>;
 	userIdParam: string;
 }) {
 	const socket = useContext(SocketContext);
-	const [gameId, setGameId] = useState(gameIdParam);
 	const [gameState, dispatchGrid] = useReducer(
 		gridStateReducer,
 		createGameState()
 	);
-	const [games, setGames] = useState<IGame[]>([]);
-	console.log(lobbyParam);
-	console.log(userIdParam);
-	console.log(gameIdParam);
 
 	useEffect(() => {
+		console.log(gameIdParam);
+		console.log(lobbyParam);
 		if (lobbyParam) {
 			const lobbyPlayer = lobbyParam.find((x) => x.userId === userIdParam);
 			if (gameState.turn !== lobbyPlayer?.position) {
 				console.log("emitting data!");
-				socket.emit("changeState", { userId: userIdParam, gameId, gameState });
+				socket.emit("changeState", {
+					userId: userIdParam,
+					gameId: gameIdParam,
+					gameState,
+				});
 			}
 		}
 
 		socket.on("stateChanged", (broadcast) => {
 			console.log("receiving data!");
-			if (broadcast.gameId === gameId) {
+			if (broadcast.gameId === gameIdParam) {
 				dispatchGrid({
 					type: "set_grid",
 					statePayload: broadcast.gameState,
@@ -173,7 +179,7 @@ export default function Game({
 		return () => {
 			socket.off("stateChanged");
 		};
-	}, [gameId, gameState, lobbyParam, socket, userIdParam]);
+	}, [gameIdParam, gameState, lobbyParam, socket, userIdParam]);
 
 	useEffect(() => {
 		if (
@@ -299,14 +305,18 @@ export default function Game({
 		}
 	};
 
-	const saveGame = async () => {
+	const saveGame = async (name: string) => {
+		const dt = new Date().toISOString();
+		console.log(dt);
 		const res = await fetch("/api/game", {
 			headers: {
 				"Content-Type": "application/json",
 			},
 			method: "POST",
 			body: JSON.stringify({
-				gameId,
+				name,
+				gameId: gameIdParam.toString(),
+				timestamp: new Date().toISOString(),
 				gameState,
 			}),
 		});
@@ -316,23 +326,6 @@ export default function Game({
 		}
 		const json = await res.json();
 		console.log(json);
-	};
-
-	const listGames = async () => {
-		const res = await fetch(`/api/games`, {
-			headers: {
-				"Content-Type": "application/json",
-			},
-			method: "GET",
-		});
-		if (res.status !== 200) {
-			console.error(res);
-			return;
-		}
-		const json = await res.json();
-		console.log(json);
-
-		setGames(json);
 	};
 
 	const loadGame = async (gameId: string) => {
@@ -364,24 +357,24 @@ export default function Game({
 		}
 		const json = await res.json();
 		console.log(json);
-		setGames((g) => g.filter((x) => x._id !== gameId));
 	};
 
 	return (
 		<>
-			<div className="py-2 flex flex-row gap-4 justify-center">
-				<span>Red : {gameState.score.red}</span>
-				<span>Black: {gameState.score.black}</span>
-			</div>
-
-			<div className="py-2">
-				<span>
-					{gameState.turn
-						? gameState.turn![0].toUpperCase() +
-						  gameState.turn!.slice(1) +
-						  "'s Turn"
-						: determineWinner(gameState.winner)}
-				</span>
+			<div className="mt-4 mb-2 flex flex-col gap-2">
+				<div className="flex flex-row gap-4 justify-center">
+					<span>Red : {gameState.score.red}</span>
+					<span>Black : {gameState.score.black}</span>
+				</div>
+				<div className="flex flex-row justify-center">
+					<span className="leading-7 [&:not(:first-child)]:mt-6">
+						{gameState.turn
+							? gameState.turn![0].toUpperCase() +
+							  gameState.turn!.slice(1) +
+							  "'s Turn"
+							: determineWinner(gameState.winner)}
+					</span>
+				</div>
 			</div>
 
 			<div className="py-2">
@@ -409,38 +402,19 @@ export default function Game({
 			</div>
 
 			<div className="w-[386px]">
-				<div className="flex flex-row flex-wrap justify-center gap-4">
-					<button className="mt-4" onClick={() => listGames()}>
-						Load Game
-					</button>
-					<button className="mt-4" onClick={() => saveGame()}>
-						Save Game
-					</button>
+				<div className="my-4 flex flex-row flex-wrap justify-center gap-4">
+					<GameList onLoad={loadGame} onSave={saveGame} onDelete={deleteGame} />
+
 					{gameState.continueTurn && (
-						<button
-							className="mt-4"
+						<Button
 							onClick={() => {
 								dispatchGrid({ type: "end_turn" });
 							}}
 						>
 							End Turn
-						</button>
+						</Button>
 					)}
-					<button className="mt-4" onClick={newGame}>
-						New Game
-					</button>
-				</div>
-
-				<div className="py-2">
-					{games.length > 0 &&
-						games.map((g: { _id: string }) => {
-							return (
-								<div key={g._id} className="flex flex-row justify-center gap-3">
-									<span onClick={() => loadGame(g._id)}>{g._id}</span>
-									<span onClick={() => deleteGame(g._id)}>X</span>
-								</div>
-							);
-						})}
+					<Button onClick={newGame}>New Game</Button>
 				</div>
 			</div>
 		</>

@@ -1,5 +1,5 @@
 import cors from "@fastify/cors";
-import mongodb from "@fastify/mongodb";
+import mongodb, { ObjectId } from "@fastify/mongodb";
 import passport from "@fastify/passport";
 import secureSession from "@fastify/secure-session";
 import { IGameState, ISocketUsers } from "@shared/interfaces.js";
@@ -54,7 +54,11 @@ passport.use(
 		if (!user || !(await bcrypt.compare(password, user.password))) {
 			return done(null, false, { message: "Incorrect username or password!" });
 		}
-		return done(null, { _id: user._id, username: user.username });
+		return done(null, {
+			_id: user._id,
+			username: user.username,
+			wins: user.wins,
+		});
 	})
 );
 passport.registerUserSerializer(
@@ -105,7 +109,6 @@ io.on("connection", (socket) => {
 			});
 		}
 
-		io.to(gameId).emit("playerJoined", { userId });
 		io.to(gameId).emit("currentUsers", currentUsers);
 	});
 
@@ -126,7 +129,7 @@ io.on("connection", (socket) => {
 	});
 });
 
-fastify.post("/register", async (req, reply) => {
+fastify.post("/register", async (req, res) => {
 	const { username, password }: { username: string; password: string } | any =
 		req.body;
 	const db = fastify.mongo.db!.collection("users");
@@ -139,9 +142,10 @@ fastify.post("/register", async (req, reply) => {
 		const result = await db.insertOne({
 			username,
 			password: await hashPassword(password),
+			wins: 0,
 		});
 		log.info(`A document was inserted with the _id: ${result.insertedId}`);
-		reply.status(200).send(result.insertedId);
+		res.status(200).send(result.insertedId);
 	} catch (error) {
 		log.error(error);
 	}
@@ -150,72 +154,156 @@ fastify.post("/register", async (req, reply) => {
 fastify.post(
 	"/login",
 	{ preValidation: passport.authenticate("local") },
-	async (req, reply) => {
-		reply.status(200).send(req.user);
+	async (req, res) => {
+		res.status(200).send(req.user);
 	}
 );
 
-fastify.get("/logout", async (request, reply) => {
-	await request.logout();
-	request.session.delete();
-	reply.clearCookie("session").send({ message: "Logged out successfully" });
+fastify.get("/logout", async (req, res) => {
+	await req.logout();
+	req.session.delete();
+	res.clearCookie("session").send({ message: "Logged out successfully" });
 });
 
-fastify.get("/games", async (req, reply) => {
-	const collection = fastify.mongo.db!.collection("games");
+fastify.get("/games", async (req, res) => {
+	const games = fastify.mongo.db!.collection("games");
 	try {
-		const cursor = collection.find();
-		log.info(`Documents found: ${await collection.countDocuments()}`);
-		const res = [];
+		const cursor = games.find();
+		log.info(`Documents found: ${await games.countDocuments()}`);
+		const result = [];
 		for await (const doc of cursor) {
-			res.push(doc);
+			result.push(doc);
 		}
-		reply.status(200).send(res);
+		res.status(200).send(result);
 	} catch (error) {
 		log.error(error);
 	}
 });
 
-fastify.post("/game", async (req, reply) => {
-	const { gameId, gameState }: { gameState: IGameState } | any = req.body;
-	const db = fastify.mongo.db!.collection("games");
+fastify.post("/game", async (req, res) => {
+	log.info(req.body);
+	const {
+		gameId,
+		name,
+		timestamp,
+		gameState,
+	}: { gameState: IGameState } | any = req.body;
+	const games = fastify.mongo.db!.collection("games");
 	try {
-		const result = await db.insertOne({
+		const game = await games.findOne({
 			_id: gameId,
-			gameState,
 		});
-		log.info(`A document was inserted with the _id: ${result.insertedId}`);
-		reply.status(200).send(result.insertedId);
+		if (!game) {
+			const result = await games.insertOne({
+				_id: gameId,
+				name,
+				timestamp,
+				gameState,
+			});
+			log.info(`A document was inserted with the _id: ${result.insertedId}`);
+			res.status(200).send(result);
+		}
+
+		const filter = {
+			_id: gameId,
+		};
+		const update = {
+			$set: {
+				name,
+				timestamp,
+				gameState,
+			},
+		};
+		const result = await games.updateOne(filter, update);
+		if (result.matchedCount === 1 && result.modifiedCount === 1) {
+			log.info(`A document was updated with the _id: ${gameId}`);
+			res.status(200).send(result);
+		}
+		res.status(200).send(result);
 	} catch (error) {
 		log.error(error);
+		res.status(500).send(error);
 	}
 });
 
-fastify.get("/game/:gameId", async (req, reply) => {
-	const { gameId }: { id: string } | any = req.params;
-	const db = fastify.mongo.db!.collection("games");
+fastify.get("/game/:gameId", async (req, res) => {
+	const { gameId }: { gameId: string } | any = req.params;
+	const games = fastify.mongo.db!.collection("games");
 	try {
-		const result = await db.findOne({
+		const result = await games.findOne({
 			_id: gameId,
 		});
 		log.info(`A document was found with the _id: ${result?._id}`);
-		reply.status(200).send(result);
+		res.status(200).send(result);
 	} catch (error) {
 		log.error(error);
+		res.status(500).send(error);
 	}
 });
 
-fastify.delete("/game/:id", async (req, reply) => {
-	const { gameId }: { id: string } | any = req.params;
-	const db = fastify.mongo.db!.collection("games");
+fastify.delete("/game/:gameId", async (req, res) => {
+	const { gameId }: { gameId: string } | any = req.params;
+	const games = fastify.mongo.db!.collection("games");
 	try {
-		const result = await db.deleteOne({
+		const result = await games.deleteOne({
 			_id: gameId,
 		});
-		log.info(`Deleted Document: ${result?.acknowledged}`);
-		reply.status(200).send(result);
+		if (result.deletedCount === 1) {
+			log.info(`Deleted Document: ${result?.acknowledged}`);
+			res.status(200).send(result);
+		}
+
+		res.status(500).send(result);
 	} catch (error) {
 		log.error(error);
+		res.status(500).send(error);
+	}
+});
+
+fastify.get("/leaderboard", async (req, res) => {
+	const users = fastify.mongo.db!.collection("users");
+	try {
+		const query = { wins: { $gt: 0 } };
+		const projection = { _id: 1, username: 1, wins: 1 };
+
+		const result: any[] = [];
+		if ((await users.countDocuments(query)) === 0) {
+			res.status(200).send(result);
+		}
+
+		const cursor = users.find(query).sort({ wins: -1 }).project(projection);
+		for await (const doc of cursor) {
+			result.push(doc);
+		}
+
+		log.info(`Documents found ${result.length}`);
+		res.status(200).send(result);
+	} catch (error) {
+		log.error(error);
+		res.status(500).send(error);
+	}
+});
+
+fastify.patch("/user", async (req, res) => {
+	const { _id, wins }: { _id: string; wins: number } | any = req.body;
+	const users = fastify.mongo.db!.collection("users");
+	try {
+		const filter = { _id: new ObjectId(_id) };
+		const updateDoc = {
+			$set: {
+				wins: wins,
+			},
+		};
+		const result = await users.updateOne(filter, updateDoc);
+		if (result.matchedCount === 1 && result.modifiedCount === 1) {
+			log.info(`A document was updated with the _id: ${result.upsertedId}`);
+			res.status(200).send(result);
+		}
+		log.error(req.body);
+		res.status(500).send(result);
+	} catch (error) {
+		log.error(error);
+		res.status(500).send(error);
 	}
 });
 

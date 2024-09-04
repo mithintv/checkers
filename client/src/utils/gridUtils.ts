@@ -1,40 +1,4 @@
-export type CoordinateArray = [number, number];
-
-export type GridCell = IGridCell | null;
-export type GridPiece = IPiece | null;
-export type Player = "black" | "red";
-
-export interface IPiece {
-	player: Player;
-	king: boolean;
-}
-
-export interface IGridCell {
-	coordinates: CoordinateArray;
-	piece: GridPiece;
-}
-
-export interface IGameState {
-	grid: IGridCell[][];
-	score: {
-		red: number;
-		black: number;
-	};
-	winner: Player | "tie" | null;
-	turn: Player | null;
-	continueTurn: boolean;
-	lockedSelection: boolean;
-	selectedCell: GridCell;
-}
-
-export interface IGame {
-	_id: string;
-}
-
-interface ICanJump {
-	newCoordinates: CoordinateArray;
-	jumpedCell: IGridCell;
-}
+import { CoordinateArray, GridPiece, ICanJump, IGameState, IGridCell, Player } from "@shared/interfaces";
 
 export const isPlayableCell = (row: number, col: number) => {
 	return (row % 2 == 0 && col % 2 === 0) || (row % 2 !== 0 && col % 2 !== 0);

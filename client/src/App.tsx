@@ -18,7 +18,6 @@ export default function App() {
 				<h1 className="my-10 scroll-m-20 text-8xl font-extrabold tracking-tight">
 					Checkers
 				</h1>
-
 				<Outlet />
 			</div>
 		</>

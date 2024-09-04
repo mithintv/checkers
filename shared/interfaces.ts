@@ -53,6 +53,7 @@ export interface ISocketUsers {
 export interface ISocketGame {
 	userId: string;
 	username: string;
+	wins: number;
 	socketId: string;
 	position: Player;
 }

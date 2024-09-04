@@ -8,7 +8,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import LobbyList from "../components/LobbyList";
 import { AuthContext } from "../context/AuthProvider";
-import { SocketContext } from "../context/SocketContext";
+import { SocketContext } from "../context/SocketProvider";
 import Game from "./Game";
 
 export default function Lobby() {
@@ -31,6 +31,7 @@ export default function Lobby() {
 			socket.emit("joinGame", {
 				userId: currUser._id,
 				username: currUser.username,
+				wins: currUser.wins,
 				gameId,
 			});
 
@@ -123,6 +124,7 @@ export default function Lobby() {
 
 			{play && (
 				<Game
+					toLobby={() => setPlay(false)}
 					lobbyParam={lobby}
 					gameIdParam={gameId}
 					setGameId={setGameId}

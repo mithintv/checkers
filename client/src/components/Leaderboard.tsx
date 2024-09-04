@@ -1,3 +1,4 @@
+import { api } from "@/lib/constants";
 import { IUser } from "@shared/interfaces";
 import { useEffect, useState } from "react";
 import {
@@ -15,7 +16,7 @@ export default function Leaderboard() {
 
 	useEffect(() => {
 		(async function () {
-			const res = await fetch("/api/leaderboard", {
+			const res = await fetch(`${api}/leaderboard`, {
 				method: "GET",
 			});
 			const json = await res.json();
@@ -40,7 +41,9 @@ export default function Leaderboard() {
 				<TableBody>
 					{leaderboard.map((p) => (
 						<TableRow key={p._id}>
-							<TableCell className="font-medium">{p.username}</TableCell>
+							<TableCell className="font-medium text-left">
+								{p.username}
+							</TableCell>
 							<TableCell className="text-right">{p.wins}</TableCell>
 						</TableRow>
 					))}

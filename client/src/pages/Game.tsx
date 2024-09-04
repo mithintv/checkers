@@ -1,5 +1,15 @@
 import GameList from "@/components/GameList";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/constants";
 import {
 	GridCell,
 	IGameState,
@@ -10,7 +20,7 @@ import {
 import { useContext, useEffect, useReducer } from "react";
 import { v4 as uuidv4 } from "uuid";
 import Cell from "../components/Cell";
-import { SocketContext } from "../context/SocketContext";
+import { SocketContext } from "../context/SocketProvider";
 import {
 	checkJumps,
 	createGameState,
@@ -136,11 +146,13 @@ function gridStateReducer(
 
 export default function Game({
 	lobbyParam,
+	toLobby,
 	gameIdParam,
 	setGameId,
 	userIdParam,
 }: {
 	lobbyParam: ISocketGame[];
+	toLobby: () => void;
 	gameIdParam: string;
 	setGameId: React.Dispatch<React.SetStateAction<string>>;
 	userIdParam: string;
@@ -152,8 +164,6 @@ export default function Game({
 	);
 
 	useEffect(() => {
-		console.log(gameIdParam);
-		console.log(lobbyParam);
 		if (lobbyParam) {
 			const lobbyPlayer = lobbyParam.find((x) => x.userId === userIdParam);
 			if (gameState.turn !== lobbyPlayer?.position) {
@@ -186,19 +196,30 @@ export default function Game({
 			!gameState.winner &&
 			(gameState.score.red === 12 || gameState.score.black === 12)
 		) {
-			let winner;
-			for (const key in gameState.score) {
-				const player = key as Player;
-				if (gameState.score[player] === 12) {
-					winner = player;
+			(async function () {
+				let winner;
+				for (const key in gameState.score) {
+					const player = key as Player;
+					if (gameState.score[player] === 12) {
+						winner = player;
+					}
 				}
-			}
-			dispatchGrid({
-				type: "end_game",
-				winner: winner!,
-			});
+				dispatchGrid({
+					type: "end_game",
+					winner: winner!,
+				});
+			})();
+		} else if (gameState.winner) {
+			(async function () {
+				const winningUser = lobbyParam.find(
+					(x) => x.position === gameState.winner
+				);
+				if (winningUser) {
+					await updateUserWin(winningUser!.userId);
+				}
+			})();
 		}
-	}, [gameState.winner, gameState.score]);
+	}, [gameState.winner, gameState.score, lobbyParam]);
 
 	const newGame = () => {
 		const gameId = uuidv4();
@@ -308,14 +329,15 @@ export default function Game({
 	const saveGame = async (name: string) => {
 		const dt = new Date().toISOString();
 		console.log(dt);
-		const res = await fetch("/api/game", {
+		const res = await fetch(`${api}/game`, {
 			headers: {
 				"Content-Type": "application/json",
 			},
 			method: "POST",
 			body: JSON.stringify({
 				name,
-				gameId: gameIdParam.toString(),
+				userId: userIdParam,
+				gameId: gameIdParam,
 				timestamp: new Date().toISOString(),
 				gameState,
 			}),
@@ -329,7 +351,7 @@ export default function Game({
 	};
 
 	const loadGame = async (gameId: string) => {
-		const res = await fetch(`/api/game/${gameId}`, {
+		const res = await fetch(`${api}/game/${gameId}`, {
 			headers: {
 				"Content-Type": "application/json",
 			},
@@ -348,8 +370,20 @@ export default function Game({
 	};
 
 	const deleteGame = async (gameId: string) => {
-		const res = await fetch(`/api/game/${gameId}`, {
+		const res = await fetch(`${api}/game/${gameId}`, {
 			method: "DELETE",
+		});
+		if (res.status !== 200) {
+			console.error(res);
+			return;
+		}
+		const json = await res.json();
+		console.log(json);
+	};
+
+	const updateUserWin = async (userId: string) => {
+		const res = await fetch(`${api}/user/${userId}/win`, {
+			method: "PATCH",
 		});
 		if (res.status !== 200) {
 			console.error(res);
@@ -378,13 +412,22 @@ export default function Game({
 			</div>
 
 			<div className="py-2">
-				<div className="flex flex-row border">
+				<div
+					className={`flex flex-row border ${
+						lobbyParam.find((x) => x.userId === userIdParam)?.position ===
+							"black" && "rotate-180"
+					}`}
+				>
 					{gameState.grid.map((row, rowIndex) => {
 						return (
 							<div className="flex flex-col" key={rowIndex}>
 								{row.map((cell) => (
 									<Cell
 										key={`${cell.coordinates[1]}-${cell.coordinates[0]}`}
+										className={`${
+											lobbyParam.find((x) => x.userId === userIdParam)
+												?.position === "black" && "rotate-180"
+										}`}
 										cell={cell}
 										selected={
 											gameState.selectedCell?.coordinates[0] ===
@@ -403,7 +446,12 @@ export default function Game({
 
 			<div className="w-[386px]">
 				<div className="my-4 flex flex-row flex-wrap justify-center gap-4">
-					<GameList onLoad={loadGame} onSave={saveGame} onDelete={deleteGame} />
+					<GameList
+						userId={userIdParam}
+						onLoad={loadGame}
+						onSave={saveGame}
+						onDelete={deleteGame}
+					/>
 
 					{gameState.continueTurn && (
 						<Button
@@ -417,6 +465,22 @@ export default function Game({
 					<Button onClick={newGame}>New Game</Button>
 				</div>
 			</div>
+
+			<AlertDialog open={gameState.winner !== null}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{determineWinner(gameState.winner)}
+						</AlertDialogTitle>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel onClick={toLobby}>
+							Back to Lobby
+						</AlertDialogCancel>
+						<AlertDialogAction onClick={newGame}>New Game</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</>
 	);
 }

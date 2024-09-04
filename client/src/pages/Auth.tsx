@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { api } from "@/lib/constants";
 import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthProvider";
@@ -13,9 +14,9 @@ export default function Auth() {
 	const onLogin = async (e: React.FormEvent) => {
 		setInvalid(false);
 		e.preventDefault();
-		console.log(username, password);
+		console.log(api);
 
-		const res = await fetch("/api/login", {
+		const res = await fetch(`${api}/login`, {
 			headers: {
 				"Content-Type": "application/json",
 			},
@@ -41,7 +42,7 @@ export default function Auth() {
 		e.preventDefault();
 		console.log(username, password);
 
-		const res = await fetch("/api/register", {
+		const res = await fetch(`${api}/register`, {
 			headers: {
 				"Content-Type": "application/json",
 			},

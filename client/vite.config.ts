@@ -1,15 +1,15 @@
-import path from "path"
 import react from "@vitejs/plugin-react";
+import path from "path";
 import { defineConfig } from "vite";
 
 // https://vitejs.dev/config/
 export default defineConfig({
 	plugins: [react()],
 	resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
+		alias: {
+			"@": path.resolve(__dirname, "./src"),
+		},
+	},
 	server: {
 		proxy: {
 			// Proxy any request starting with /api to the target server

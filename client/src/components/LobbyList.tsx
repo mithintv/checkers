@@ -24,7 +24,7 @@ export default function LobbyList({ lobby }: { lobby: ISocketGame[] }) {
 						<TableRow>
 							<TableHead className="w-[100px]">Username</TableHead>
 							<TableHead>Position</TableHead>
-							<TableHead className="text-right">Highscore</TableHead>
+							<TableHead className="text-right">Wins</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -32,7 +32,7 @@ export default function LobbyList({ lobby }: { lobby: ISocketGame[] }) {
 							<TableRow key={p.userId}>
 								<TableCell className="font-medium">{p.username}</TableCell>
 								<TableCell className="font-medium">{p.position}</TableCell>
-								<TableCell className="text-right">{p.userId}</TableCell>
+								<TableCell className="text-right">{p.wins}</TableCell>
 							</TableRow>
 						))}
 					</TableBody>

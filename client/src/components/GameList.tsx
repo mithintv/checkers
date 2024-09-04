@@ -1,3 +1,4 @@
+import { api } from "@/lib/constants";
 import { IGameSave } from "@shared/interfaces";
 import { useEffect, useState } from "react";
 import { MdOutlineDelete } from "react-icons/md";
@@ -23,10 +24,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 export default function GameList({
+	userId,
 	onLoad,
 	onSave,
 	onDelete,
 }: {
+	userId: string;
 	onLoad: (id: string) => void;
 	onSave: (name: string) => Promise<void>;
 	onDelete: (id: string) => Promise<void>;
@@ -41,7 +44,7 @@ export default function GameList({
 	}, []);
 
 	const listGames = async () => {
-		const res = await fetch("/api/games", {
+		const res = await fetch(`${api}/games/${userId}`, {
 			method: "GET",
 		});
 		const json = await res.json();
@@ -86,12 +89,15 @@ export default function GameList({
 					</TabsList>
 					<TabsContent value="load">
 						<Table>
-							<TableCaption>Saved Games</TableCaption>
+							<TableCaption>
+								Saved Games
+								<br />
+								*(Red - Black)
+							</TableCaption>
 							<TableHeader>
 								<TableRow>
 									<TableHead>Name</TableHead>
-									<TableHead className="text-right">Red</TableHead>
-									<TableHead className="text-right">Black</TableHead>
+									<TableHead className="text-right">Score*</TableHead>
 									<TableHead className="text-right">Date Created</TableHead>
 									<TableHead className="text-right"></TableHead>
 								</TableRow>
@@ -107,10 +113,7 @@ export default function GameList({
 									>
 										<TableCell className="font-medium">{g.name}</TableCell>
 										<TableCell className="font-medium text-right">
-											{g.gameState.score.red}
-										</TableCell>
-										<TableCell className="font-medium text-right">
-											{g.gameState.score.black}
+											{g.gameState.score.red} - {g.gameState.score.black}
 										</TableCell>
 										<TableCell className="text-right">
 											{new Date(g.timestamp).toLocaleString()}

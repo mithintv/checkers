@@ -3,11 +3,11 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import App from "./App.tsx";
 import AuthProvider from "./context/AuthProvider.tsx";
-import { socket, SocketContext } from "./context/SocketContext.ts";
 import ThemeProvider from "./context/ThemeProvider.tsx";
 import "./index.css";
 import Auth from "./pages/Auth.tsx";
 import Lobby from "./pages/Lobby.tsx";
+import SocketProvider from "./context/SocketProvider.tsx";
 
 const router = createBrowserRouter([
 	{
@@ -20,7 +20,11 @@ const router = createBrowserRouter([
 			},
 			{
 				path: "lobby/:gameIdParam?",
-				element: <Lobby />,
+				element: (
+					<SocketProvider>
+						<Lobby />
+					</SocketProvider>
+				),
 			},
 		],
 	},
@@ -29,11 +33,9 @@ const router = createBrowserRouter([
 createRoot(document.getElementById("root")!).render(
 	<StrictMode>
 		<AuthProvider>
-			<SocketContext.Provider value={socket}>
-				<ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-					<RouterProvider router={router} />
-				</ThemeProvider>
-			</SocketContext.Provider>
+			<ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+				<RouterProvider router={router} />
+			</ThemeProvider>
 		</AuthProvider>
 	</StrictMode>
 );
